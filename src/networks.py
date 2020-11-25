@@ -138,15 +138,15 @@ class ImageWiseNetwork(BaseNetwork):
         self.classifier = nn.Sequential(
             nn.Linear(1 * 16 * 16, 128),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5, inplace=True),
+            nn.Dropout(0.5),
 
             nn.Linear(128, 128),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5, inplace=True),
+            nn.Dropout(0.5),
 
             nn.Linear(128, 64),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5, inplace=True),
+            nn.Dropout(0.5),
 
             nn.Linear(64, 4),
         )
