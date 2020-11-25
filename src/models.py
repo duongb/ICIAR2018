@@ -88,7 +88,7 @@ class PatchWiseModel(BaseModel):
                         index * len(images),
                         len(train_loader.dataset),
                         100. * index / len(train_loader),
-                        loss.data[0],
+                        loss.data,
                         100 * correct / total
                     ))
 
@@ -124,24 +124,24 @@ class PatchWiseModel(BaseModel):
         )
         if verbose:
             print('\nEvaluating....')
+        with torch.no_grad():
+          for images, labels in test_loader:
 
-        for images, labels in test_loader:
+              if self.args.cuda:
+                  images, labels = images.cuda(), labels.cuda()
 
-            if self.args.cuda:
-                images, labels = images.cuda(), labels.cuda()
+              output = self.network(Variable(images, volatile=True))
 
-            output = self.network(Variable(images, volatile=True))
+              test_loss += F.nll_loss(output, Variable(labels), size_average=False).data
+              _, predicted = torch.max(output.data, 1)
+              correct += torch.sum(predicted == labels)
 
-            test_loss += F.nll_loss(output, Variable(labels), size_average=False).data[0]
-            _, predicted = torch.max(output.data, 1)
-            correct += torch.sum(predicted == labels)
-
-            for label in range(classes):
-                t_labels = labels == label
-                p_labels = predicted == label
-                tp[label] += torch.sum(t_labels == (p_labels * 2 - 1))
-                tpfp[label] += torch.sum(p_labels)
-                tpfn[label] += torch.sum(t_labels)
+              for label in range(classes):
+                  t_labels = labels == label
+                  p_labels = predicted == label
+                  tp[label] += torch.sum(t_labels == (p_labels * 2 - 1))
+                  tpfp[label] += torch.sum(p_labels)
+                  tpfn[label] += torch.sum(t_labels)
 
         for label in range(classes):
             precision[label] += (tp[label] / (tpfp[label] + 1e-8))
@@ -219,7 +219,8 @@ class PatchWiseModel(BaseModel):
 
     def output(self, input_tensor):
         self.network.eval()
-        res = self.network.features(Variable(input_tensor, volatile=True))
+        with torch.no_grad():
+          res = self.network.features(Variable(input_tensor, volatile=True))
         return res.squeeze()
 
     def visualize(self, path, channel=0):
@@ -308,7 +309,7 @@ class ImageWiseModel(BaseModel):
                         index * len(images),
                         len(train_loader.dataset),
                         100. * index / len(train_loader),
-                        loss.data[0],
+                        loss.data,
                         100 * correct / total
                     ))
 
@@ -351,11 +352,11 @@ class ImageWiseModel(BaseModel):
 
             output = self.network(Variable(images, volatile=True))
 
-            val_loss += F.nll_loss(output, Variable(labels), size_average=False).data[0]
+            val_loss += F.nll_loss(output, Variable(labels), size_average=False).data
             _, predicted = torch.max(output.data, 1)
             correct += torch.sum(predicted == labels)
 
-            labels_true = np.append(labels_true, labels)
+            labels_true = np.append(labels_true, labels.cpu())
             labels_pred = np.append(labels_pred, torch.exp(output.data).cpu().numpy(), axis=0)
 
             for label in range(classes):
@@ -439,9 +440,9 @@ class ImageWiseModel(BaseModel):
             # maj_prop: majority voting: create a one-hot vector of predicted values: (12, 4),
             # sum among y axis: (1, 4), reverse, and take the index  of the largest value
 
-            maj_prob = 3 - np.argmax(np.sum(np.eye(4)[np.array(predicted).reshape(-1)], axis=0)[::-1])
+            maj_prob = 3 - np.argmax(np.sum(np.eye(4)[predicted.cpu().numpy().reshape(-1)], axis=0)[::-1])
 
-            confidence = np.sum(np.array(predicted) == maj_prob) / n_bins if ensemble else torch.max(torch.exp(output.data))
+            confidence = np.sum(predicted.cpu().numpy() == maj_prob) / n_bins if ensemble else torch.max(torch.exp(output.data))
             confidence = np.round(confidence * 100, 2)
 
             res.append([maj_prob, confidence, file_name[0]])
