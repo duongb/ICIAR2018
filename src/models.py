@@ -89,7 +89,7 @@ class PatchWiseModel(BaseModel):
                         len(train_loader.dataset),
                         100. * index / len(train_loader),
                         loss.data,
-                        100 * correct / total
+                        100 * correct // total
                     ))
 
             print('\nEnd of epoch {}, time: {}'.format(epoch, datetime.datetime.now() - stime))
